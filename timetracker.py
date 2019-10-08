@@ -5,9 +5,6 @@ import sys
 import time
 import datetime
 import json
-from collections import namedtuple
-
-Session = namedtuple('Session', 'start end name')
 
 
 class TimeTracker:
@@ -19,73 +16,109 @@ class TimeTracker:
 
     def load(self):
         '''Loads the file containing the persistent data'''
-        with open('timetracker.json') as file:
-            try:
+        try:
+            with open('timetracker.json') as file:
                 self.data = json.load(file)
-            except json.decoder.JSONDecodeError:
-                self.data = {}
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            self.data = {}
 
     def save(self):
         '''Saves the data to a file'''
         with open('timetracker.json', 'w') as file:
-            json.dump(self.data, file)
+            json.dump(self.data, file, indent=2)
+
+    def newSession(self):
+        session = {
+            'name': None,
+            'start': None,
+            'end': None,
+        }
+        self.currentDay().append(session)
+        return self.currentSession()
+
+    def newDay(self):
+        date = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.data[date] = []
 
     def currentDay(self):
         '''Returns the sessions for the current day'''
         date = datetime.datetime.now().strftime('%Y-%m-%d')
         if date not in self.data:
-            self.data[date] = []
+            return None
         return self.data[date]
 
     def currentSession(self):
         '''Returns the current session'''
         day = self.currentDay()
-        if len(day) < 1:
-            day.append([])
-        return self.currentDay()[len(self.currentDay())-1]
+        if day is None:
+            return None
+        session = day[len(day)-1]
+        if session['end'] is None:
+            return session
+        else:
+            return None
 
     def checkin(self, checkin_time):
         '''Registers a checkin'''
-        session = self.currentSession()
-        if len(session) == 2:
-            self.currentDay().append([])
-            session = self.currentSession()
-        if len(session) == 1:
+        if self.currentSession() is not None:
             print('You are already checked in')
-        else:
-            session.append(time.strftime("%H:%M", checkin_time))
+
+        session = self.newSession()
+        session['start'] = time.strftime("%H:%M", checkin_time)
+        if self.currentDay() is None:
+            self.newDay()
         self.save()
 
     def checkout(self, checkout_time):
         '''Registers a checkout'''
+        if self.currentSession() is None:
+            return print('You are not checked in')
         session = self.currentSession()
-        if len(session) == 1:
-            session.append(time.strftime("%H:%M", checkout_time))
-        else:
-            print('You are already checked out')
+        session['end'] = time.strftime("%H:%M", checkout_time)
+        self.save()
+
+    def track(self, name):
+        '''Tracks a task'''
+        session = self.currentSession()
+        if (session is None):
+            return print('You are not checked in')
+        currentTime = datetime.datetime.now().strftime('%H:%M')
+        session['end'] = currentTime
+        session = self.newSession()
+        session['name'] = name
+        session['start'] = currentTime
+        print(f'Tracking new task: {name}')
         self.save()
 
     def status(self):
         '''Generates a status report'''
-        output = 'Status\n'
+        if self.currentSession() is not None:
+            if self.currentSession()['name']:
+                print(f'Current task: {self.currentSession()["name"]}')
+            else:
+                print('Not tracking any tasks')
+        else:
+            print('You are currently not checked in')
+
         time_worked = datetime.timedelta()
+        previous_session = None
         for session in self.currentDay():
-            if len(session) == 2:
-                output += f'-> {session[0]}\n'
-                output += f'<- {session[1]}\n'
-                time_delta = datetime.datetime.strptime(session[1], '%H:%M')
-                - datetime.datetime.strptime(session[0], '%H:%M')
-            elif len(session) == 1:
-                output += f'-> {session[0]}\n'
+            if previous_session is not None:
+                if session['start'] != previous_session['end']:
+                    print(f'{previous_session["end"]} Checked out\n')
+
+            print(f'{session["start"]} {session["name"] or "Checked in"}')
+            
+            if session['end'] is not None:
+                time_delta = datetime.datetime.strptime(session['end'], '%H:%M') - datetime.datetime.strptime(session['start'], '%H:%M')
+            else:
                 now = datetime.datetime.now().strftime('%H:%M')
-                time_delta = datetime.datetime.strptime(now, '%H:%M')
-                - datetime.datetime.strptime(session[0], '%H:%M')
+                time_delta = datetime.datetime.strptime(now, '%H:%M') - datetime.datetime.strptime(session['start'], '%H:%M')
 
             time_worked += time_delta
+            previous_session = session
 
-        output += f'Hours worked: {str(time_worked)}'
-
-        return output
+        print(f'Hours worked: {str(time_worked)}')
 
 
 class CommandLine:
@@ -132,10 +165,15 @@ commands:
         self.tracker.checkout(checkout_time)
 
     def status(self):
-        print(self.tracker.status())
+        self.tracker.status()
 
     def track(self):
-        print('Not yet implemented')
+        parser = argparse.ArgumentParser(
+            description='Track a task')
+        parser.add_argument('name', help='Name of the session to track')
+        parser.add_argument('time', nargs='?', help='Start time')
+        args = parser.parse_args(sys.argv[2:])
+        self.tracker.track(args.name)
 
 
 if __name__ == '__main__':
