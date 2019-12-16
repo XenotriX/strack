@@ -5,6 +5,10 @@ import sys
 from time import strptime, strftime
 import datetime
 import json
+from pathlib import Path
+
+
+DATA_FILE = str(Path.home()) + '/timetracker.json'
 
 
 class TimeTracker:
@@ -20,14 +24,14 @@ class TimeTracker:
     def load(self):
         '''Loads the file containing the persistent data'''
         try:
-            with open('timetracker.json') as file:
+            with open(DATA_FILE) as file:
                 self.data = json.load(file)
         except (FileNotFoundError, json.decoder.JSONDecodeError):
             self.data = {}
 
     def save(self):
         '''Saves the data to a file'''
-        with open('timetracker.json', 'w') as file:
+        with open(DATA_FILE, 'w') as file:
             json.dump(self.data, file, indent=2)
 
     def newSession(self):
@@ -66,10 +70,10 @@ class TimeTracker:
         if self.currentSession() is not None:
             return False
 
-        session = self.newSession()
-        session['start'] = strftime("%H:%M", checkin_time)
         if self.currentDay() is None:
             self.newDay()
+        session = self.newSession()
+        session['start'] = strftime("%H:%M", checkin_time)
         return True
 
     def checkout(self, checkout_time):
@@ -80,16 +84,19 @@ class TimeTracker:
         session['end'] = strftime("%H:%M", checkout_time)
         return True
 
-    def track(self, name):
+    def track(self, name, time):
         '''Tracks a task'''
         session = self.currentSession()
-        if (session is None):
+        if session is None:
             return False
-        currentTime = datetime.datetime.now().strftime('%H:%M')
-        session['end'] = currentTime
+        if time:
+            startTime = strftime("%H:%M", time)
+        else:
+            startTime = datetime.datetime.now().strftime('%H:%M')
+        session['end'] = startTime
         session = self.newSession()
         session['name'] = name
-        session['start'] = currentTime
+        session['start'] = startTime
         return True
 
     def status(self):
@@ -110,7 +117,7 @@ class TimeTracker:
         #             print(f'{previous_session["end"]} Checked out\n')
 
         #     print(f'{session["start"]} {session["name"] or "Checked in"}')
-            
+
         #     if session['end'] is not None:
         #         time_delta = datetime.datetime.strptime(session['end'], '%H:%M') - datetime.datetime.strptime(session['start'], '%H:%M')
         #     else:
@@ -121,6 +128,24 @@ class TimeTracker:
         #     previous_session = session
 
         # print(f'Hours worked: {str(time_worked)}')
+
+    def log(self):
+        if self.currentDay() is None:
+            return 'There are no sessions yet'
+        # Split data into 3 lists
+        name_list = [session['name'] for session in self.currentDay()]
+        start_list = [session['start'] for session in self.currentDay()]
+        end_list = [session['end'] for session in self.currentDay()]
+        # Fill empty values with defaults
+        name_list = list(map(lambda x: x if x else 'unnamed', name_list))
+        start_list = list(map(lambda x: x if x else '', start_list))
+        end_list = list(map(lambda x: x if x else '', end_list))
+        # Find the longest name
+        longest_name = len(max(name_list, key=len))
+        lines = []
+        for name, start, end in zip(name_list, start_list, end_list):
+            lines.append(f'{name:<{longest_name + 3}}{start:<8}{end}')
+        return '\n'.join(lines)
 
 
 @click.group()
@@ -171,13 +196,22 @@ def status(ctx):
 
 @cli.command()
 @click.pass_context
+def log(ctx):
+    """Prints all the sessions of the current day as a list"""
+    print(ctx.obj['tracker'].log())
+
+
+@cli.command()
+@click.pass_context
 @click.argument("name")
 @click.argument("time")
 def track(ctx, name, time):
-    """Tracks a new task"""
-    # subParser.add_argument('name', help='Name of the session to track')
-    # subParser.add_argument('time', nargs='?', help='Start time')
-    if ctx.obj['tracker'].track(name):
+    """Tracks a new session with the given name"""
+    try:
+        time = strptime(time, '%H:%M')
+    except ValueError:
+        print('Could not parse the time')
+    if ctx.obj['tracker'].track(name, time):
         print(f'Tracking new task: {name}')
     else:
         print('You are not checked in')
