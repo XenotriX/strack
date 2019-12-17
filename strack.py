@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import click
-import sys
 from time import strptime, strftime
 import datetime
 import json
 from pathlib import Path
-
+from sty import fg, bg, ef, rs
 
 DATA_FILE = str(Path.home()) + '/timetracker.json'
 
@@ -140,11 +139,17 @@ class TimeTracker:
         name_list = list(map(lambda x: x if x else 'unnamed', name_list))
         start_list = list(map(lambda x: x if x else '', start_list))
         end_list = list(map(lambda x: x if x else '', end_list))
+        # Add headers
+        headers = ["Session", "Start", "End"]
         # Find the longest name
-        longest_name = len(max(name_list, key=len))
+        min_len = max(len(max(name_list, key=len)), len(headers[0]))
         lines = []
+        # Headers
+        header = f'{headers[0]:<{min_len + 3}}{headers[1]:<8}{headers[2]}'
+        lines.append(ef.b + header + rs.dim_bold)
+        # Session
         for name, start, end in zip(name_list, start_list, end_list):
-            lines.append(f'{name:<{longest_name + 3}}{start:<8}{end}')
+            lines.append(f'{name:<{min_len + 3}}{start:<8}{end}')
         return '\n'.join(lines)
 
 
