@@ -157,7 +157,7 @@ class TimeTracker:
 @click.pass_context
 @click.version_option()
 def cli(ctx):
-    """Tracks works session"""
+    """Tracks work session"""
     ctx.obj = {}
     ctx.obj['tracker'] = TimeTracker()
 
