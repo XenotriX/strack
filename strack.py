@@ -137,7 +137,7 @@ class TimeTracker:
         end_list = [session['end'] for session in self.currentDay()]
         # Fill empty values with defaults
         nr_list = [str(x + 1) for x in range(len(self.currentDay()))]
-        name_list = list(map(lambda x: x if x else 'unnamed', name_list))
+        name_list = list(map(lambda x: x if x else '-', name_list))
         start_list = list(map(lambda x: x if x else '', start_list))
         end_list = list(map(lambda x: x if x else '', end_list))
         # Add headers
