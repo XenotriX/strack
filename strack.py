@@ -136,21 +136,45 @@ class TimeTracker:
         start_list = [session['start'] for session in self.currentDay()]
         end_list = [session['end'] for session in self.currentDay()]
         # Fill empty values with defaults
+        nr_list = [str(x + 1) for x in range(len(self.currentDay()))]
         name_list = list(map(lambda x: x if x else 'unnamed', name_list))
         start_list = list(map(lambda x: x if x else '', start_list))
         end_list = list(map(lambda x: x if x else '', end_list))
         # Add headers
-        headers = ["Session", "Start", "End"]
-        # Find the longest name
-        min_len = max(len(max(name_list, key=len)), len(headers[0]))
-        lines = []
-        # Headers
-        header = f'{headers[0]:<{min_len + 3}}{headers[1]:<8}{headers[2]}'
-        lines.append(ef.b + header + rs.dim_bold)
-        # Session
-        for name, start, end in zip(name_list, start_list, end_list):
-            lines.append(f'{name:<{min_len + 3}}{start:<8}{end}')
-        return '\n'.join(lines)
+        headers = ["Nr", "Session", "Start", "End"]
+        rows = list(zip(nr_list, name_list, start_list, end_list))
+        return render_table(headers, rows)
+
+
+def render_table(headers, rows):
+    ''' Prints a list of headers and a list of rows as a table '''
+    # Find the longest of each column
+    col_width = []
+    for index, header in enumerate(headers):
+        if index < len(col_width):
+            col_width[index] = max(col_width[index], len(header))
+        else:
+            col_width.append(len(header))
+    for row in rows:
+        for index, cell in enumerate(row):
+            if index < len(col_width):
+                col_width[index] = max(col_width[index], len(cell))
+            else:
+                col_width.append(len(cell))
+    lines = []
+    # Headers
+    header_line = ''
+    for index, header in enumerate(headers):
+        header_line += f'{header:<{col_width[index] + 3}}'
+    lines.append(ef.b + header_line + rs.dim_bold)
+    # Session
+    for row in rows:
+        row_line = ''
+        for index, col in enumerate(row):
+            row_line += f'{col:<{col_width[index] + 3}}'
+        lines.append(row_line)
+
+    return '\n'.join(lines)
 
 
 @click.group()
