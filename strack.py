@@ -244,6 +244,16 @@ def track(ctx, name, time):
         print(f'Tracking new task: {name}')
     else:
         print('You are not checked in')
+    
+
+@cli.command()
+@click.pass_context
+@click.argument('id')
+@click.option('--name')
+@click.option('--start')
+@click.option('--end')
+def modify(ctx, id, name, start, end):
+    ctx.obj['tracker'].modify(id, name, start, end)
 
 
 if __name__ == '__main__':
