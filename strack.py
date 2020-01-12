@@ -39,6 +39,8 @@ class TimeTracker:
             'start': None,
             'end': None,
         }
+        if not self.currentDay():
+            self.newDay()
         self.currentDay().append(session)
         return self.currentSession()
 
@@ -85,14 +87,16 @@ class TimeTracker:
 
     def track(self, name, time):
         '''Tracks a task'''
-        session = self.currentSession()
-        if session is None:
-            return False
+        # Get the start time
         if time:
             startTime = strftime("%H:%M", time)
         else:
             startTime = datetime.datetime.now().strftime('%H:%M')
-        session['end'] = startTime
+        # End previous session
+        prev_session = self.currentSession()
+        if prev_session:
+            prev_session['end'] = startTime
+        # Start new session
         session = self.newSession()
         session['name'] = name
         session['start'] = startTime
@@ -242,8 +246,8 @@ def track(ctx, name, time):
         print('Could not parse the time')
     if ctx.obj['tracker'].track(name, time):
         print(f'Tracking new task: {name}')
-    else:
-        print('You are not checked in')
+    # else:
+    #     print('You are not checked in')
 
 
 if __name__ == '__main__':
