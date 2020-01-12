@@ -5,7 +5,7 @@ from time import strptime, strftime
 import datetime
 import json
 from pathlib import Path
-from sty import fg, bg, ef, rs
+from sty import ef, rs
 
 DATA_FILE = str(Path.home()) + '/timetracker.json'
 
