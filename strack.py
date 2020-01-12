@@ -33,31 +33,31 @@ class TimeTracker:
         with open(DATA_FILE, 'w') as file:
             json.dump(self.data, file, indent=2)
 
-    def newSession(self):
+    def new_session(self):
         session = {
             'name': None,
             'start': None,
             'end': None,
         }
-        if not self.currentDay():
-            self.newDay()
-        self.currentDay().append(session)
-        return self.currentSession()
+        if not self.current_day():
+            self.new_day()
+        self.current_day().append(session)
+        return self.current_session()
 
-    def newDay(self):
+    def new_day(self):
         date = datetime.datetime.now().strftime('%Y-%m-%d')
         self.data[date] = []
 
-    def currentDay(self):
+    def current_day(self):
         '''Returns the sessions for the current day'''
         date = datetime.datetime.now().strftime('%Y-%m-%d')
         if date not in self.data:
             return None
         return self.data[date]
 
-    def currentSession(self):
+    def current_session(self):
         '''Returns the current session'''
-        day = self.currentDay()
+        day = self.current_day()
         if day is None:
             return None
         session = day[len(day)-1]
@@ -68,20 +68,20 @@ class TimeTracker:
 
     def checkin(self, checkin_time):
         '''Registers a checkin'''
-        if self.currentSession() is not None:
+        if self.current_session() is not None:
             return False
 
-        if self.currentDay() is None:
+        if self.current_day() is None:
             self.newDay()
-        session = self.newSession()
+        session = self.new_session()
         session['start'] = strftime("%H:%M", checkin_time)
         return True
 
     def checkout(self, checkout_time):
         '''Registers a checkout'''
-        if self.currentSession() is None:
+        if self.current_session() is None:
             return False
-        session = self.currentSession()
+        session = self.current_session()
         session['end'] = strftime("%H:%M", checkout_time)
         return True
 
@@ -89,24 +89,24 @@ class TimeTracker:
         '''Tracks a task'''
         # Get the start time
         if time:
-            startTime = strftime("%H:%M", time)
+            start_time = strftime("%H:%M", time)
         else:
-            startTime = datetime.datetime.now().strftime('%H:%M')
+            start_time = datetime.datetime.now().strftime('%H:%M')
         # End previous session
-        prev_session = self.currentSession()
+        prev_session = self.current_session()
         if prev_session:
-            prev_session['end'] = startTime
+            prev_session['end'] = start_time
         # Start new session
-        session = self.newSession()
+        session = self.new_session()
         session['name'] = name
-        session['start'] = startTime
+        session['start'] = start_time
         return True
 
     def status(self):
         '''Generates a status report'''
-        if self.currentSession() is not None:
-            if self.currentSession()['name']:
-                return f'Current task: {self.currentSession()["name"]}'
+        if self.current_session() is not None:
+            if self.current_session()['name']:
+                return f'Current task: {self.current_session()["name"]}'
             else:
                 return 'Not tracking any tasks'
         else:
@@ -133,14 +133,14 @@ class TimeTracker:
         # print(f'Hours worked: {str(time_worked)}')
 
     def log(self):
-        if self.currentDay() is None:
+        if self.current_day() is None:
             return 'There are no sessions yet'
         # Split data into 3 lists
-        name_list = [session['name'] for session in self.currentDay()]
-        start_list = [session['start'] for session in self.currentDay()]
-        end_list = [session['end'] for session in self.currentDay()]
+        name_list = [session['name'] for session in self.current_day()]
+        start_list = [session['start'] for session in self.current_day()]
+        end_list = [session['end'] for session in self.current_day()]
         # Fill empty values with defaults
-        nr_list = [str(x + 1) for x in range(len(self.currentDay()))]
+        nr_list = [str(x + 1) for x in range(len(self.current_day()))]
         name_list = list(map(lambda x: x if x else '-', name_list))
         start_list = list(map(lambda x: x if x else '', start_list))
         end_list = list(map(lambda x: x if x else '', end_list))
