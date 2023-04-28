@@ -5,8 +5,9 @@ import json
 
 VERSION = 1
 
+
 class Data:
-    def __init__(self, projects = [], active_project = ''):
+    def __init__(self, projects=[], active_project=''):
         self.active_project: Optional[str] = active_project
         self.projects: List[Project] = projects
         self.version = VERSION
@@ -18,7 +19,8 @@ class Data:
         self.projects.append(Project(name))
 
     def remove_project(self, name: str) -> None:
-        self.projects = [project for project in self.projects if project.name != name]
+        self.projects = [
+            project for project in self.projects if project.name != name]
 
     def get_project(self, name: str) -> Project:
         for project in self.projects:
@@ -26,7 +28,7 @@ class Data:
                 return project
         raise Exception(f'Project {name} not found')
 
-    def get_active(self) ->Project:
+    def get_active(self) -> Project:
         assert self.active_project
         return self.get_project(self.active_project)
 
@@ -47,9 +49,9 @@ class Data:
             for project in obj['projects']:
                 projects.append(Project.from_obj(project))
             return Data(
-                    projects=projects,
-                    active_project=obj.get('active_project', ''))
-        except:
+                projects=projects,
+                active_project=obj.get('active_project', ''))
+        except AttributeError:
             raise Exception('Could not parse Data')
 
     def __repr__(self):

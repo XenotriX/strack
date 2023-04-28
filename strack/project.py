@@ -1,6 +1,7 @@
 from .session import Session
 from typing import List
 
+
 class Project:
     def __init__(self, name):
         self.name: str = name
@@ -24,7 +25,7 @@ class Project:
             for session in obj['sessions']:
                 project.add_session(Session.from_obj(session))
             return project
-        except:
+        except AttributeError:
             raise Exception('Could not parse Project')
 
     def __repr__(self):

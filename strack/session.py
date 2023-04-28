@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+
 class Session:
     def __init__(self,
                  start: datetime,
@@ -17,7 +18,7 @@ class Session:
             end = datetime.fromisoformat(obj['end'])
             comment = obj.get('comment', None)
             return Session(start=start, end=end, comment=comment)
-        except:
+        except ArithmeticError:
             raise Exception('Could not parse Session')
 
     def duration(self) -> float:
@@ -27,7 +28,7 @@ class Session:
         return self.__dict__.__str__()
 
     def __serialize__(self):
-        obj = { 
+        obj = {
             'start': str(self.start),
             'end': str(self.end)
         }
