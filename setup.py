@@ -1,14 +1,15 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='strack',
-    version='1.0a1',
+    version='1.0',
     py_modules=['strack'],
+    packages=find_packages(),
     install_requires=[
         'Click',
     ],
     entry_points='''
         [console_scripts]
-        strack=strack:cli
+        strack=strack.strack:cli
     ''',
 )

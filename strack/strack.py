@@ -1,5 +1,4 @@
 import click
-import json
 from datetime import datetime, date, timedelta
 from rich import print, box
 from rich.table import Table
@@ -10,29 +9,24 @@ from pathlib import Path
 from os import path
 from typing import List
 
+from .data import Data
+from .session import Session
+
 DATA_FILE = path.join(Path.home(), "strack_data.json")
 
-
-def load_file():
-    def session_decoder(obj):
-        if 'start_time' in obj:
-            obj['start_time'] = datetime.fromisoformat(obj['start_time'])
-        if 'end_time' in obj and obj['end_time'] is not None:
-            obj['end_time'] = datetime.fromisoformat(obj['end_time'])
-        return obj
-
+def load_file() -> Data:
     try:
         with open(DATA_FILE) as f:
-            data = json.load(f, object_hook=session_decoder)
+            data = Data.from_file(f)
     except FileNotFoundError:
-        data = {}
+        data = Data()
 
     return data
 
 
 def save_file(data):
     with open(DATA_FILE, 'w') as f:
-        json.dump(data, f, default=str, indent=4)
+        data.to_file(f)
         
 
 def is_this_week(dt):
@@ -66,10 +60,10 @@ def project():
 def project_add(project_name):
     data = load_file()
 
-    if project_name in data['projects']:
+    if data.has_project(project_name):
         print(f"Project \"{project_name}\" already exists.")
     else:
-        data['projects'][project_name] = []
+        data.add_project(project_name)
         save_file(data)
         print(f"Project \"{project_name}\" added.")
 
@@ -79,15 +73,15 @@ def project_add(project_name):
 def project_remove(project_name):
     data = load_file()
 
-    if project_name not in data['projects']:
+    if not data.has_project(project_name):
         print(f"Project \"{project_name}\" doesn't exist.")
         exit(1)
 
-    session_count = len(data['projects'][project_name])
+    session_count = data.get_project(project_name).session_count()
     confirmed = Confirm.ask(f'Are you sure you want to remove the project "{project_name}" and delete {session_count} sessions?')
 
     if confirmed:
-        del data['projects'][project_name]
+        data.remove_project(project_name)
         save_file(data)
         print(f"Project \"{project_name}\" has been removed.")
 
@@ -98,16 +92,15 @@ def project_remove(project_name):
 def project_rename(old_name, new_name):
     data = load_file()
 
-    if old_name not in data['projects']:
+    if not data.has_project(old_name):
         print(f"Project \"{old_name}\" doesn't exist.")
         exit(1)
 
-    if new_name in data['projects']:
+    if data.has_project(new_name):
         print(f'There is already a project with the name "{new_name}".')
         exit(1)
 
-    data['projects'][new_name] = data['projects'][old_name]
-    del data['projects'][old_name]
+    data.get_project(old_name).name = new_name
     save_file(data)
     print(f'Project \"{old_name}\" has been renamed to "{new_name}".')
 
@@ -116,8 +109,8 @@ def project_rename(old_name, new_name):
 def project_list():
     data = load_file()
 
-    for project in data['projects']:
-        print(project)
+    for project in data.projects:
+        print(project.name)
 
 
 @cli.command(help='Start tracking a project')
@@ -126,15 +119,15 @@ def project_list():
 def start(project_name, time):
     data = load_file()
 
-    if data.get('active_project') is not None:
-        print(f'Project "{data["active_project"]}" is currently active.')
+    if data.active_project is not None:
+        print(f'Project "{data.get_active().name}" is currently active.')
         print(f'You can terminate the current session by using [bold]strack stop')
         return
 
-    if project_name not in data['projects']:
+    if not data.has_project(project_name):
         print(f"Project \"{project_name}\" doesn't exist.")
         if Confirm.ask('Do you want to create it?'):
-            data['projects'][project_name] = []
+            data.add_project(project_name)
         else:
             exit()
 
@@ -142,11 +135,8 @@ def start(project_name, time):
     if time:
         start_time = datetime.strptime(time, "%H:%M")
         date = datetime.combine(date, start_time.time())
-    data["active_project"] = project_name
-    data['projects'][project_name].append({
-        "start_time": date,
-        "end_time": None
-    })
+    data.active_project = project_name
+    data.get_active().add_session(Session(start=date))
     save_file(data)
     print(f"{project_name} is now active.")
 
@@ -158,44 +148,41 @@ def start(project_name, time):
 def stop(comment, time):
     data = load_file()
 
-    if data.get("active_project") is None:
+    if not data.is_active():
         print("No active project.")
     else:
-        active_project = data["active_project"]
-        sessions = data['projects'][active_project]
-        active_session = sessions[-1]
+        active_project = data.get_active()
+        active_session = active_project.active_session()
 
         # Set end time
         date = datetime.now()
         if time:
             end_time = datetime.strptime(time, "%H:%M")
             date = datetime.combine(date, end_time.time())
-        active_session["end_time"] = date
+        active_session.end = date
 
         if comment:
-            active_session['comment'] = comment
+            active_session.comment = comment
 
-        data["active_project"] = None
+        data.active_project = None
         save_file(data)
 
-        duration = active_session["end_time"] - active_session["start_time"]
-        duration_hours = format_duration(duration.total_seconds())
+        duration = active_session.duration()
+        duration_hours = format_duration(duration)
         print(f"Session {active_project} stopped (Duration: {duration_hours})")
 
 
-def print_report(active_project, data):
+def print_report(active_project, data: Data):
     time_total = 0
     time_week = 0
     time_today = 0
-    for session in data['projects'][active_project]:
-        end_time = session['end_time'] or datetime.now()
-        duration = end_time - session['start_time']
-        duration_hours = duration.total_seconds()
-        time_total += duration_hours
-        if is_this_week(session['start_time']):
-            time_week += duration_hours
-        if session['start_time'].date() == date.today():
-            time_today += duration_hours
+    for session in data.get_project(active_project).sessions:
+        duration = session.duration()
+        time_total += duration
+        if is_this_week(session.start):
+            time_week += duration
+        if session.start.date() == date.today():
+            time_today += duration
 
     print(f'Today: {format_duration(time_today)}')
     print(f'Week: {format_duration(time_week)}')
@@ -206,25 +193,27 @@ def print_report(active_project, data):
 def status():
     data = load_file()
 
-    if "active_project" in data and data['active_project'] is not None:
-        active_project = data["active_project"]
-        print(f"Active project: [bold]{active_project}[/bold]")
-        active_session = data['projects'][active_project][-1]
-        duration = datetime.now() - active_session["start_time"]
-        duration_hours = format_duration(duration.total_seconds())
-        print(f"Current session: [bold]{duration_hours}[/bold] started at {active_session['start_time']:%H:%M}")
+    if data.is_active():
+        active_project = data.get_active()
+        print(f'Active project: [bold]{active_project}[/bold]')
+        active_session = active_project.active_session()
+        duration = active_session.duration()
+        duration_hours = format_duration(duration)
+        print((f'Current session: [bold]{duration_hours}[/bold] '
+               f'started at {active_session.start:%H:%M}'))
 
         print_report(active_project, data)
     else:
-        print("No active project.")
-        print(f'Start a session by typing: [bold]strack start [italic]project_name')
+        print('No active project.')
+        print(('Start a session by typing: '
+               '[bold]strack start [italic]project_name'))
 
 
 @cli.command(help='Show report')
 def report():
     data = load_file()
 
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
     table = Table(box=box.ROUNDED, show_footer=True)
 
@@ -249,32 +238,30 @@ def report():
     projects = {}
     project_totals = {}
 
-    for project_name, project_data in data['projects'].items():
-        projects[project_name] = [0 for _ in days]
-        data = projects[project_name]
-        project_totals[project_name] = timedelta(0)
-        for session in project_data:
+    for project in data.projects:
+        projects[project.name] = [0 for _ in days]
+        data = projects[project.name]
+        project_totals[project.name] = 0
+        for session in project.sessions:
             # Calculate duration
-            start_time = session['start_time']
-            end_time = session['end_time'] or datetime.now()
-            duration = end_time - start_time
+            duration = session.duration()
 
-            project_totals[project_name] += duration
+            project_totals[project.name] += duration
 
             # Ignare sessions that are not this week
-            if not is_this_week(session['start_time']):
+            if not is_this_week(session.start):
                 continue
 
             # Increment time for the day
-            weekday = start_time.weekday()
-            data[weekday] += duration.total_seconds()
+            weekday = session.start.weekday()
+            data[weekday] += duration
 
     for project in projects:
         day_projects = [format_duration(time) if time > 0 else '' for time in projects[project]]
         # Add project total
         total = sum(projects[project])
 
-        table.add_row(project, *day_projects, format_duration(total), format_duration(project_totals[project].total_seconds()))
+        table.add_row(project, *day_projects, format_duration(total), format_duration(project_totals[project]))
 
     # Show daily totals in footer
     table.columns[0].footer = 'Total'
@@ -296,10 +283,11 @@ def report():
 # @click.option('--before', default=None, help='Only show sessions ended before this date')
 def list_sessions(project_name, limit):
     data = load_file()
-    table = Table('Project', 'Date', 'Start', 'End', 'Duration', 'Comment', box=box.ROUNDED)
+    headers = ['Project', 'Date', 'Start', 'End', 'Duration', 'Comment']
+    table = Table(*headers, box=box.ROUNDED)
 
-    sessions = [(proj, sess['start_time'], sess['end_time'], sess.get('comment', ''))
-                for proj, sessions in data['projects'].items() for sess in sessions]
+    sessions = [(proj.name, session.start, session.end, session.comment or '')
+                for proj in data.projects for session in proj.sessions]
 
     sessions.sort(key=lambda x:x[1], reverse=True)
 
@@ -337,22 +325,21 @@ def round_time(dt: datetime) -> datetime:
         dt = dt.replace(minute=30, second=0, microsecond=0)
     return dt
 
-def create_week_table(data):
-    projects = data['projects']
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+def create_week_table(data: Data):
+    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     day_ranges = {day: [] for day in days}
 
     earliest_time = None
     latest_time = None
 
-    for project_name, entries in projects.items():
-        for entry in entries:
-            start_time = entry['start_time']
+    for project in data.projects:
+        for session in project.sessions:
+            start_time = session.start
 
             if not is_this_week(start_time):
                 continue
 
-            end_time = entry['end_time'] or datetime.now()
+            end_time = session.end or datetime.now()
 
             # Round the time to the nearest half hour
             start_time = round_time(start_time)
@@ -368,7 +355,7 @@ def create_week_table(data):
             earliest_time = min(start_time, earliest_time) if earliest_time else start_time
             latest_time = max(end_time, latest_time) if latest_time else end_time
 
-            day_ranges[weekday].append((start_time, end_time, project_name, entry.get('comment', None)))
+            day_ranges[weekday].append((start_time, end_time, project.name, session.comment))
 
     assert earliest_time and latest_time, "No sessions found for this week"
 

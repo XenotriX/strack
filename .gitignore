@@ -2,3 +2,5 @@
 *.log
 env/
 build/
+__pycache__/
+strack.egg-info/
