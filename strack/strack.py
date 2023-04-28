@@ -8,11 +8,14 @@ from rich.text import Text
 from pathlib import Path
 from os import path
 from typing import List
+from rich.console import Console
 
 from .data import Data
 from .session import Session
 
 DATA_FILE = path.join(Path.home(), "strack_data.json")
+
+console = Console()
 
 def load_file() -> Data:
     try:
@@ -300,7 +303,11 @@ def list_sessions(data, project_name, limit):
         duration_str = format_duration(int(duration * 3600))
         table.add_row(session[0], f'{start_time:%Y-%m-%d}', f'{start_time:%H:%M}', f'{end_time:%H:%M}', f'{duration_str}', session[3])
 
-    print(table)
+    if len(sessions) > console.height:
+        with console.pager():
+            console.print(table)
+    else:
+        print(table)
 
 def merge_ranges(ranges):
     sorted_ranges = sorted(ranges, key=lambda x: x[0])
