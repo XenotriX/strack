@@ -48,7 +48,9 @@ def format_duration(seconds):
 
 
 @click.group()
-def cli():
+@click.pass_context
+def cli(ctx):
+    ctx.obj = load_file()
     pass
 
 @cli.group()
@@ -57,9 +59,8 @@ def project():
 
 @project.command(name='add', help='Add a new project')
 @click.argument('project_name')
-def project_add(project_name):
-    data = load_file()
-
+@click.pass_obj
+def project_add(data, project_name):
     if data.has_project(project_name):
         print(f"Project \"{project_name}\" already exists.")
     else:
@@ -70,9 +71,8 @@ def project_add(project_name):
 
 @project.command(name='remove', help='Remove a project')
 @click.argument('project_name')
-def project_remove(project_name):
-    data = load_file()
-
+@click.pass_obj
+def project_remove(data, project_name):
     if not data.has_project(project_name):
         print(f"Project \"{project_name}\" doesn't exist.")
         exit(1)
@@ -89,9 +89,8 @@ def project_remove(project_name):
 @project.command(name='rename', help='Rename a project')
 @click.argument('old_name')
 @click.argument('new_name')
-def project_rename(old_name, new_name):
-    data = load_file()
-
+@click.pass_obj
+def project_rename(data, old_name, new_name):
     if not data.has_project(old_name):
         print(f"Project \"{old_name}\" doesn't exist.")
         exit(1)
@@ -106,8 +105,8 @@ def project_rename(old_name, new_name):
 
 
 @project.command(name='list', help='List projects')
-def project_list():
-    data = load_file()
+@click.pass_obj
+def project_list(data):
 
     for project in data.projects:
         print(project.name)
@@ -116,9 +115,8 @@ def project_list():
 @cli.command(help='Start tracking a project')
 @click.argument('project_name')
 @click.option('-t', '--time', default=None, help='Start time (current time is used if not specified)')
-def start(project_name, time):
-    data = load_file()
-
+@click.pass_obj
+def start(data, project_name, time):
     if data.active_project is not None:
         print(f'Project "{data.get_active().name}" is currently active.')
         print(f'You can terminate the current session by using [bold]strack stop')
@@ -145,9 +143,8 @@ def start(project_name, time):
 @cli.command()
 @click.option('-c', '--comment', default=None, help='Add a comment')
 @click.option('-t', '--time', default=None, help='End time (current time is used if not specified)')
-def stop(comment, time):
-    data = load_file()
-
+@click.pass_obj
+def stop(data, comment, time):
     if not data.is_active():
         print("No active project.")
     else:
@@ -190,8 +187,8 @@ def print_report(active_project, data: Data):
 
 
 @cli.command()
-def status():
-    data = load_file()
+@click.pass_obj
+def status(data):
 
     if data.is_active():
         active_project = data.get_active()
@@ -210,9 +207,8 @@ def status():
 
 
 @cli.command(help='Show report')
-def report():
-    data = load_file()
-
+@click.pass_obj
+def report(data):
     days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
     table = Table(box=box.ROUNDED, show_footer=True)
@@ -281,8 +277,8 @@ def report():
 @click.option('-n', '--limit', default=None, type=click.INT, help='Limit the number of sessions shown')
 # @click.option('--since', default=None, help='Only show sessions started after this date')
 # @click.option('--before', default=None, help='Only show sessions ended before this date')
-def list_sessions(project_name, limit):
-    data = load_file()
+@click.pass_obj
+def list_sessions(data, project_name, limit):
     headers = ['Project', 'Date', 'Start', 'End', 'Duration', 'Comment']
     table = Table(*headers, box=box.ROUNDED)
 
@@ -393,8 +389,8 @@ def create_week_table(data: Data):
     print(table)
 
 @cli.command(help='Lists sessions')
-def cal():
-    data = load_file()
+@click.pass_obj
+def cal(data):
     create_week_table(data)
 
 
