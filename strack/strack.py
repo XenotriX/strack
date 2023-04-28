@@ -5,33 +5,16 @@ from rich.table import Table
 from rich.prompt import Confirm
 from rich.style import Style
 from rich.text import Text
-from pathlib import Path
-from os import path
 from typing import List
 from rich.console import Console
 
 from .data import Data
 from .session import Session
 from .utils import round_time, is_this_week, format_duration
-
-DATA_FILE = path.join(Path.home(), 'strack_data.json')
+from .file_utils import load_file, save_file
+from . import project_command
 
 console = Console()
-
-
-def load_file() -> Data:
-    try:
-        with open(DATA_FILE) as f:
-            data = Data.from_file(f)
-    except FileNotFoundError:
-        data = Data()
-
-    return data
-
-
-def save_file(data):
-    with open(DATA_FILE, 'w') as f:
-        data.to_file(f)
 
 
 @click.group()
@@ -41,66 +24,7 @@ def cli(ctx):
     pass
 
 
-@cli.group()
-def project():
-    pass
-
-
-@project.command(name='add', help='Add a new project')
-@click.argument('project_name')
-@click.pass_obj
-def project_add(data, project_name):
-    if data.has_project(project_name):
-        print(f'Project "{project_name}" already exists.')
-    else:
-        data.add_project(project_name)
-        save_file(data)
-        print(f'Project "{project_name}" added.')
-
-
-@project.command(name='remove', help='Remove a project')
-@click.argument('project_name')
-@click.pass_obj
-def project_remove(data, project_name):
-    if not data.has_project(project_name):
-        print(f'Project "{project_name}" doesn\'t exist.')
-        exit(1)
-
-    session_count = data.get_project(project_name).session_count()
-    confirmed = Confirm.ask((
-        f'Are you sure you want to remove the project "{project_name}"'
-        f'and delete {session_count} sessions?'))
-
-    if confirmed:
-        data.remove_project(project_name)
-        save_file(data)
-        print(f'Project \'{project_name}\' has been removed.')
-
-
-@project.command(name='rename', help='Rename a project')
-@click.argument('old_name')
-@click.argument('new_name')
-@click.pass_obj
-def project_rename(data, old_name, new_name):
-    if not data.has_project(old_name):
-        print(f'Project "{old_name}" doesn\'t exist.')
-        exit(1)
-
-    if data.has_project(new_name):
-        print(f'There is already a project with the name "{new_name}".')
-        exit(1)
-
-    data.get_project(old_name).name = new_name
-    save_file(data)
-    print(f'Project "{old_name}" has been renamed to "{new_name}".')
-
-
-@project.command(name='list', help='List projects')
-@click.pass_obj
-def project_list(data):
-
-    for project in data.projects:
-        print(project.name)
+cli.add_command(project_command.project)
 
 
 @cli.command(help='Start tracking a project')
@@ -379,7 +303,7 @@ def create_week_table(data: Data):
     print(table)
 
 
-@cli.command(help='Lists sessions')
+@cli.command(help='Show calendar for the week')
 @click.pass_obj
 def cal(data):
     create_week_table(data)
