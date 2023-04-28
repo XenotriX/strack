@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from .utils import format_duration
 
 
 class Session:
@@ -23,6 +24,10 @@ class Session:
 
     def duration(self) -> float:
         return ((self.end or datetime.now()) - self.start).total_seconds()
+
+    def duration_str(self) -> str:
+        seconds = self.duration()
+        return format_duration(seconds)
 
     def __repr__(self):
         return self.__dict__.__str__()

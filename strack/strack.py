@@ -1,18 +1,16 @@
 import click
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from rich import print, box
 from rich.table import Table
 from rich.prompt import Confirm
 from rich.style import Style
-from rich.text import Text
-from typing import List
 from rich.console import Console
 
 from .data import Data
 from .session import Session
-from .utils import round_time, is_this_week, format_duration
+from .utils import is_this_week, format_duration
 from .file_utils import load_file, save_file
-from . import project_command
+from . import project_command, calendar_command
 
 console = Console()
 
@@ -25,6 +23,7 @@ def cli(ctx):
 
 
 cli.add_command(project_command.project)
+cli.add_command(calendar_command.calendar)
 
 
 @cli.command(help='Start tracking a project')
@@ -32,12 +31,14 @@ cli.add_command(project_command.project)
 @click.option('-t', '--time', default=None,
               help='Start time (current time is used if not specified)')
 @click.pass_obj
-def start(data, project_name, time):
+def start(data: Data, project_name, time):
+    # Check that there is no active project
     if data.active_project is not None:
         print(f'Project "{data.get_active().name}" is currently active.')
         print('Use [bold]strack stop[/bold] to stop the current session')
         return
 
+    # Check that the project exists#
     if not data.has_project(project_name):
         print(f'Project "{project_name}" doesn\'t exist.')
         if Confirm.ask('Do you want to create it?'):
@@ -45,6 +46,7 @@ def start(data, project_name, time):
         else:
             exit()
 
+    # Start the session
     date = datetime.now()
     if time:
         start_time = datetime.strptime(time, '%H:%M')
@@ -60,29 +62,32 @@ def start(data, project_name, time):
 @click.option('-t', '--time', default=None,
               help='End time (current time is used if not specified)')
 @click.pass_obj
-def stop(data, comment, time):
+def stop(data: Data, comment, time):
     if not data.is_active():
         print('No active project.')
-    else:
-        active_project = data.get_active()
-        active_session = active_project.active_session()
+        return
 
-        # Set end time
-        date = datetime.now()
-        if time:
-            end_time = datetime.strptime(time, '%H:%M')
-            date = datetime.combine(date, end_time.time())
-        active_session.end = date
+    active_project = data.get_active()
+    active_session = active_project.active_session()
 
-        if comment:
-            active_session.comment = comment
+    # Set end time
+    date = datetime.now()
+    if time:
+        end_time = datetime.strptime(time, '%H:%M')
+        date = datetime.combine(date, end_time.time())
+    active_session.end = date
 
-        data.active_project = None
-        save_file(data)
+    # Add comment
+    if comment:
+        active_session.comment = comment
 
-        duration = active_session.duration()
-        duration_hours = format_duration(duration)
-        print(f'Session {active_project} stopped (Duration: {duration_hours})')
+    data.active_project = None
+    save_file(data)
+
+    # Print summary
+    duration_str = active_session.duration_str()
+    print((f'Session {active_project.name} stopped '
+           f'(Duration: {duration_str})'))
 
 
 def print_report(active_project, data: Data):
@@ -104,27 +109,28 @@ def print_report(active_project, data: Data):
 
 @cli.command()
 @click.pass_obj
-def status(data):
-
-    if data.is_active():
-        active_project = data.get_active()
-        print(f'Active project: [bold]{active_project}[/bold]')
-        active_session = active_project.active_session()
-        duration = active_session.duration()
-        duration_hours = format_duration(duration)
-        print((f'Current session: [bold]{duration_hours}[/bold] '
-               f'started at {active_session.start:%H:%M}'))
-
-        print_report(active_project, data)
-    else:
+def status(data: Data):
+    # Check if there is an active project
+    if not data.is_active():
         print('No active project.')
         print(('Start a session by typing: '
                '[bold]strack start [italic]project_name'))
+        return
+
+    # Print status
+    active_project = data.get_active()
+    print(f'Active project: [bold]{active_project}[/bold]')
+    active_session = active_project.active_session()
+    duration_str = active_session.duration_str()
+    print((f'Current session: [bold]{duration_str}[/bold] '
+           f'started at {active_session.start:%H:%M}'))
+
+    print_report(active_project, data)
 
 
 @cli.command(help='Show report')
 @click.pass_obj
-def report(data):
+def report(data: Data):
     days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
     table = Table(box=box.ROUNDED, show_footer=True)
@@ -199,114 +205,42 @@ def report(data):
 # @click.option('--before', default=None,
 #               help='Only show sessions ended before this date')
 @click.pass_obj
-def list_sessions(data, project_name, limit):
+def list_sessions(data: Data, project_name, limit):
     headers = ['Project', 'Date', 'Start', 'End', 'Duration', 'Comment']
     table = Table(*headers, box=box.ROUNDED)
 
-    sessions = [(proj.name, session.start, session.end, session.comment or '')
+    # Get list of sessions with project
+    sessions = [{'project': proj, 'session': session}
                 for proj in data.projects for session in proj.sessions]
 
-    sessions.sort(key=lambda x: x[1], reverse=True)
+    # Sort by start time
+    sessions.sort(key=lambda x: x['session'].start, reverse=True)
 
+    # Filter by project name
     if project_name:
         sessions = list(
-            filter(lambda session: session[0] == project_name, sessions))
+            filter(lambda x: x['project'].name == project_name, sessions))
 
+    # Limit number of sessions
     if limit:
         sessions = sessions[:limit]
 
+    # Construct table
     for session in sessions:
-        start_time = session[1]
-        end_time = session[2] or datetime.now()
-        duration = (end_time - start_time).total_seconds() / 3600
-        duration_str = format_duration(int(duration * 3600))
-        table.add_row(session[0],
+        duration_str = session['session'].duration_str()
+        start_time = session['session'].start
+        end_time = session['session'].end or datetime.now()
+        table.add_row(session['project'].name,
                       f'{start_time:%Y-%m-%d}', f'{start_time:%H:%M}',
-                      f'{end_time:%H:%M}', f'{duration_str}', session[3])
+                      f'{end_time:%H:%M}', f'{duration_str}',
+                      session['session'].comment or '')
 
+    # Display table
     if len(sessions) > console.height:
         with console.pager():
             console.print(table)
     else:
         print(table)
-
-
-def create_week_table(data: Data):
-    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    day_ranges = {day: [] for day in days}
-
-    earliest_time = None
-    latest_time = None
-
-    for project in data.projects:
-        for session in project.sessions:
-            start_time = session.start
-
-            if not is_this_week(start_time):
-                continue
-
-            end_time = session.end or datetime.now()
-
-            # Round the time to the nearest half hour
-            start_time = round_time(start_time)
-            end_time = round_time(end_time)
-
-            weekday = days[start_time.weekday()]
-
-            # Truncate the date and only keep the time
-            start_time = start_time.replace(year=1900, month=1, day=1)
-            end_time = end_time.replace(year=1900, month=1, day=1)
-
-            # Find the earliest and latest time regardless of the day
-            earliest_time = min(
-                start_time, earliest_time) if earliest_time else start_time
-            latest_time = max(
-                end_time, latest_time) if latest_time else end_time
-
-            day_ranges[weekday].append(
-                (start_time, end_time, project.name, session.comment))
-
-    assert earliest_time and latest_time, 'No sessions found for this week'
-
-    table = Table(show_header=True, box=box.ROUNDED, expand=False,
-                  collapse_padding=True, padding=(0, 0))
-    table.add_column('Time')
-
-    for day in days:
-        table.add_column(day, min_width=5, justify='center')
-
-    # Get intervals
-    total_interval = latest_time - earliest_time
-    # Get the number of half hours
-    total_interval = total_interval.total_seconds() / 1800
-    intervals = []
-    for i in range(int(total_interval)):
-        start_time = earliest_time + timedelta(minutes=30 * i)
-        end_time = start_time + timedelta(minutes=30)
-        intervals.append((start_time, end_time))
-
-    for start_time, end_time in intervals:
-        row: List[str | Text] = [f'{start_time.strftime("%H:%M")}']
-        for day in days:
-            cell = ''
-            for dr in day_ranges[day]:
-                if dr[0] <= start_time and dr[1] >= end_time:
-                    cell = Text('', style=Style(bgcolor='blue'))
-                    if dr[0] == start_time:
-                        project_name, comment = dr[2], dr[3]
-                        cell.append(project_name)
-                        if comment:
-                            cell += f' ({comment})'
-            row.append(cell)
-        table.add_row(*row)
-
-    print(table)
-
-
-@cli.command(help='Show calendar for the week')
-@click.pass_obj
-def cal(data):
-    create_week_table(data)
 
 
 if __name__ == '__main__':
