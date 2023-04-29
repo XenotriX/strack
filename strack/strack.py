@@ -33,7 +33,7 @@ cli.add_command(calendar_command.calendar)
 @click.pass_obj
 def start(data: Data, project_name, time):
     # Check that there is no active project
-    if data.active_project is not None:
+    if data.is_active():
         print(f'Project "{data.get_active().name}" is currently active.')
         print('Use [bold]strack stop[/bold] to stop the current session')
         return
@@ -94,7 +94,7 @@ def print_report(active_project, data: Data):
     time_total = 0
     time_week = 0
     time_today = 0
-    for session in data.get_project(active_project).sessions:
+    for session in active_project.sessions:
         duration = session.duration()
         time_total += duration
         if is_this_week(session.start):
@@ -119,7 +119,7 @@ def status(data: Data):
 
     # Print status
     active_project = data.get_active()
-    print(f'Active project: [bold]{active_project}[/bold]')
+    print(f'Active project: [bold]{active_project.name}[/bold]')
     active_session = active_project.active_session()
     duration_str = active_session.duration_str()
     print((f'Current session: [bold]{duration_str}[/bold] '

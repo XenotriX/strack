@@ -16,11 +16,16 @@ class Session:
     def from_obj(obj):
         try:
             start = datetime.fromisoformat(obj['start'])
-            end = datetime.fromisoformat(obj['end'])
             comment = obj.get('comment', None)
-            return Session(start=start, end=end, comment=comment)
         except ArithmeticError:
             raise Exception('Could not parse Session')
+
+        try:
+            end = datetime.fromisoformat(obj['end'])
+        except ValueError:
+            end = None
+
+        return Session(start=start, end=end, comment=comment)
 
     def duration(self) -> float:
         return ((self.end or datetime.now()) - self.start).total_seconds()

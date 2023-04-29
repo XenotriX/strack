@@ -34,7 +34,7 @@ class Data:
 
     def is_active(self, name: Optional[str] = None) -> bool:
         if name is None:
-            return self.active_project != ''
+            return self.active_project not in ['', None]
         return self.active_project == name
 
     @staticmethod
