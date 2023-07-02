@@ -48,7 +48,7 @@ def get_sessions_per_day(data: Data):
             end = end.replace(year=1900, month=1, day=1)
 
             sessions_per_day[weekday].append(
-                (start, end, project.name, session.comment))
+                (start, end, project, session.comment))
 
     return sessions_per_day
 
@@ -66,6 +66,17 @@ def get_intervals(earliest: datetime, latest: datetime):
     return intervals
 
 
+def get_text_color(rgb_color, threshold=128):
+    # Calculate the grayscale value
+    gray = 0.299 * rgb_color[0] + 0.587 * rgb_color[1] + 0.114 * rgb_color[2]
+
+    # Return black or white based on the grayscale value and threshold
+    if gray >= threshold:
+        return 'black'  # black
+    else:
+        return 'white'  # white
+
+
 def print_calendar(intervals, sessions_per_day):
     table = Table(show_header=True, box=box.ROUNDED, expand=False,
                   collapse_padding=True, padding=(0, 0))
@@ -80,9 +91,11 @@ def print_calendar(intervals, sessions_per_day):
             cell = ''
             for dr in sessions_per_day[day]:
                 if dr[0] <= start and dr[1] >= end:
-                    cell = Text('', style=Style(bgcolor='blue'))
+                    color = dr[2].color
+                    text_color = get_text_color(color.triplet)
+                    cell = Text('', style=Style(color=text_color, bgcolor=color))
                     if dr[0] == start:
-                        project_name, comment = dr[2], dr[3]
+                        project_name, comment = dr[2].name, dr[3]
                         cell.append(project_name)
                         if comment:
                             cell += f' ({comment})'
