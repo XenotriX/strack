@@ -1,9 +1,12 @@
-from pathlib import Path
-from os import path
 from .data import Data
 
 
-DATA_FILE = path.join(Path.home(), 'strack_data.json')
+DATA_FILE = ''
+
+
+def set_file(file):
+    global DATA_FILE
+    DATA_FILE = file
 
 
 def load_file() -> Data:

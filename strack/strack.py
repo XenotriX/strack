@@ -5,11 +5,12 @@ from rich.table import Table
 from rich.prompt import Confirm
 from rich.style import Style
 from rich.console import Console
+from os import path
 
 from .data import Data
 from .session import Session
 from .utils import is_this_week, format_duration
-from .file_utils import load_file, save_file
+from .file_utils import load_file, save_file, set_file
 from . import project_command, calendar_command
 
 console = Console()
@@ -17,7 +18,12 @@ console = Console()
 
 @click.group()
 @click.pass_context
-def cli(ctx):
+@click.option('--file',
+              default=path.expanduser('~/strack_data.json'),
+              help='Path to the data file',
+              type=click.Path(exists=False, dir_okay=False, resolve_path=True))
+def cli(ctx, file):
+    set_file(file)
     ctx.obj = load_file()
     pass
 
