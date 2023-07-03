@@ -3,7 +3,6 @@ from datetime import datetime, date
 from rich import print, box
 from rich.table import Table
 from rich.prompt import Confirm
-from rich.style import Style
 from rich.console import Console
 from os import path
 
@@ -12,6 +11,7 @@ from .session import Session
 from .utils import is_this_week, format_duration
 from .file_utils import load_file, save_file, set_file
 from . import project_command, calendar_command
+from .report import report
 
 console = Console()
 
@@ -30,6 +30,7 @@ def cli(ctx, file):
 
 cli.add_command(project_command.project)
 cli.add_command(calendar_command.calendar)
+cli.add_command(report)
 
 
 @cli.command(help='Start tracking a project')
@@ -132,74 +133,6 @@ def status(data: Data):
            f'started at {active_session.start:%H:%M}'))
 
     print_report(active_project, data)
-
-
-@cli.command(help='Show report')
-@click.pass_obj
-def report(data: Data):
-    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    table = Table(box=box.ROUNDED, show_footer=True)
-
-    table.add_column('Project')
-    today_day = date.today().weekday()
-    for index, day in enumerate(days):
-        if index == today_day:
-            table.add_column(day, justify='center',
-                             style=Style(color='blue'),
-                             header_style=Style(color='blue'),
-                             footer_style=Style(color='blue'))
-        elif index > today_day:
-            table.add_column(day, justify='center',
-                             style=Style(color='bright_black'),
-                             header_style=Style(color='bright_black'),
-                             footer_style=Style(color='bright_black'))
-        else:
-            table.add_column(day, justify='center')
-    table.add_column('Week')
-    table.add_column('Total')
-
-    projects = {}
-    project_totals = {}
-
-    for project in data.projects:
-        projects[project.name] = [0 for _ in days]
-        data = projects[project.name]
-        project_totals[project.name] = 0
-        for session in project.sessions:
-            # Calculate duration
-            duration = session.duration()
-
-            project_totals[project.name] += duration
-
-            # Ignare sessions that are not this week
-            if not is_this_week(session.start):
-                continue
-
-            # Increment time for the day
-            weekday = session.start.weekday()
-            data[weekday] += duration
-
-    for project in projects:
-        day_projects = [format_duration(
-            time) if time > 0 else '' for time in projects[project]]
-        # Add project total
-        total = sum(projects[project])
-
-        table.add_row(project, *day_projects, format_duration(total),
-                      format_duration(project_totals[project]))
-
-    # Show daily totals in footer
-    table.columns[0].footer = 'Total'
-    for i in range(len(days)):
-        day_total = sum([projects[project][i] for project in projects])
-        table.columns[i + 1].footer = format_duration(day_total)
-
-    # Show weekly total
-    total = sum([sum(projects[project]) for project in projects])
-    table.columns[-2].footer = format_duration(total)
-
-    print(table)
 
 
 @cli.command(name='list', help='Lists sessions')

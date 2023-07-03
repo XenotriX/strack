@@ -2,6 +2,7 @@ from datetime import datetime, date
 
 
 def round_time(dt: datetime) -> datetime:
+    '''Rounds the time to the nearest half hour'''
     if dt.minute < 30:
         dt = dt.replace(minute=0, second=0, microsecond=0)
     else:
@@ -10,6 +11,7 @@ def round_time(dt: datetime) -> datetime:
 
 
 def is_this_week(dt):
+    '''Returns True if the date is from the same week as the current date'''
     # Get the ISO calendar year, week number of the input datetime
     year, week, _ = dt.isocalendar()
 
@@ -21,6 +23,7 @@ def is_this_week(dt):
 
 
 def format_duration(seconds):
+    '''Formats the duration in seconds to a string in the format HH:MM'''
     seconds = round(seconds)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)

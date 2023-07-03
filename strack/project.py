@@ -29,6 +29,9 @@ class Project:
         assert session.end is None, 'Session is not active'
         return session
 
+    def total_duration(self) -> int:
+        return sum([session.duration() for session in self.sessions])
+
     @staticmethod
     def from_obj(obj):
         try:
