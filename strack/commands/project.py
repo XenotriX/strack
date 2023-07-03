@@ -5,8 +5,8 @@ from rich.text import Text
 from rich.style import Style
 from rich import print
 
-from .file_utils import save_file
-from .project import random_color
+from strack.file_utils import save_file
+from strack.data.project import random_color
 
 
 @click.group(help='Manage projects')

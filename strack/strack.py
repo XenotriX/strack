@@ -6,12 +6,13 @@ from rich.prompt import Confirm
 from rich.console import Console
 from os import path
 
-from .data import Data
-from .session import Session
+from .data import Data, Session
 from .utils import is_this_week, format_duration
 from .file_utils import load_file, save_file, set_file
-from . import project_command, calendar_command
-from .report import report
+
+from strack.commands.report import report
+from strack.commands.calendar import calendar
+from strack.commands.project import project
 
 console = Console()
 
@@ -28,8 +29,8 @@ def cli(ctx, file):
     pass
 
 
-cli.add_command(project_command.project)
-cli.add_command(calendar_command.calendar)
+cli.add_command(project)
+cli.add_command(calendar)
 cli.add_command(report)
 
 

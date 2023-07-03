@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from .utils import format_duration
+from strack.utils import format_duration
 
 
 class Session:

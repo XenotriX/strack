@@ -6,8 +6,8 @@ from rich.text import Text
 from rich.style import Style
 from typing import List
 
-from .data import Data
-from .utils import round_time, is_this_week
+from strack.data import Data
+from strack.utils import round_time, is_this_week
 
 days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 

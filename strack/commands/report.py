@@ -4,8 +4,8 @@ from rich import print, box
 import click
 from datetime import date
 
-from .utils import is_this_week, format_duration
-from .data import Data
+from strack.utils import is_this_week, format_duration
+from strack.data import Data
 
 days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
