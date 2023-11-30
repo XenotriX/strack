@@ -4,7 +4,7 @@ from rich import print, box
 from rich.table import Table
 from rich.prompt import Confirm
 from rich.console import Console
-from os import path
+from os import path, environ
 
 from .data import Data, Session
 from .utils import is_this_week, format_duration
@@ -17,10 +17,16 @@ from strack.commands.project import project
 console = Console()
 
 
+def resolve_storage_path():
+    if environ.get('STRACK_DATA'):
+        return environ.get('STRACK_DATA')
+    return path.expanduser('~/strack_data.json')
+
+
 @click.group()
 @click.pass_context
 @click.option('--file',
-              default=path.expanduser('~/strack_data.json'),
+              default=resolve_storage_path(),
               help='Path to the data file',
               type=click.Path(exists=False, dir_okay=False, resolve_path=True))
 def cli(ctx, file):
